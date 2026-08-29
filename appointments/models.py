@@ -8,9 +8,12 @@ class Availability(models.Model):
         on_delete=models.CASCADE,
         related_name='availabilities'
     )
-    day_of_week = models.PositiveIntegerField()
+    day_of_week = models.PositiveIntegerField() # 0 = Monday, 6 = Sunday
     start_time = models.TimeField()
     end_time = models.TimeField()
+
+    class Meta:
+        ordering = ['day_of_week', 'start_time']
 
     def __str__(self):
         days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
@@ -68,7 +71,8 @@ class Chat(models.Model):
 class Message(models.Model):
     chat = models.ForeignKey(Chat, on_delete=models.CASCADE, related_name='messages')
     sender = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
-    content = models.TextField()
+    content = models.TextField(blank=True, default='')
+    image = models.ImageField(upload_to='chat_images/', blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
     read = models.BooleanField(default=False)
 
@@ -76,4 +80,4 @@ class Message(models.Model):
         ordering = ['created_at']
 
     def __str__(self):
-        return f"{self.sender.username}: {self.content[:50]}"
+        return f"{self.sender.username}: {self.content[:50] if self.content else '[Image]'}"

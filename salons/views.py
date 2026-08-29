@@ -3,7 +3,6 @@ from rest_framework.response import Response
 from rest_framework.decorators import action
 from django.utils import timezone
 from datetime import timedelta
-from django.db.models import Q
 from .models import Salon, Service, SalonPublication, HairstylePublication, Review, SubscriptionTransaction
 from .serializers import (
     SalonSerializer, ServiceSerializer, SalonPublicationSerializer,
@@ -27,17 +26,15 @@ class SalonViewSet(viewsets.ModelViewSet):
         hairdresser_id = self.request.query_params.get('hairdresser')
         if hairdresser_id:
             return self.queryset.filter(hairdressers__id=hairdresser_id)
-        if self.action == 'list':
-            now = timezone.now()
-            return self.queryset.filter(
-                Q(subscription_active_until__gte=now) | Q(subscription_active_until__isnull=True)
-            )
         return self.queryset
 
     def perform_create(self, serializer):
         now = timezone.now()
         trial_until = now + timedelta(days=7)
         salon = serializer.save(manager=self.request.user, subscription_active_until=trial_until)
+        # Automatically add the manager as the first stylist if they are a hairdresser
+        if self.request.user.role == 'hairdresser':
+            salon.hairdressers.add(self.request.user)
         SubscriptionTransaction.objects.create(
             salon=salon,
             amount=0,
@@ -130,10 +127,11 @@ class SalonPublicationViewSet(viewsets.ModelViewSet):
         return [permissions.IsAuthenticated()]
 
     def get_queryset(self):
+        qs = SalonPublication.objects.all().select_related('salon').order_by('-created_at')
         salon_id = self.request.query_params.get('salon')
         if salon_id:
-            return self.queryset.filter(salon_id=salon_id)
-        return self.queryset
+            return qs.filter(salon_id=salon_id)
+        return qs
 
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
@@ -151,7 +149,7 @@ class SalonPublicationViewSet(viewsets.ModelViewSet):
         return Response(serializer.data)
 
 class HairstylePublicationViewSet(viewsets.ModelViewSet):
-    queryset = HairstylePublication.objects.select_related('salon', 'hairdresser').prefetch_related('salon__services')
+    queryset = HairstylePublication.objects.all()
     serializer_class = HairstylePublicationSerializer
 
     def get_permissions(self):
@@ -160,7 +158,7 @@ class HairstylePublicationViewSet(viewsets.ModelViewSet):
         return [permissions.IsAuthenticated()]
 
     def get_queryset(self):
-        qs = self.queryset
+        qs = HairstylePublication.objects.select_related('salon', 'hairdresser').prefetch_related('salon__services').order_by('-created_at')
         hairdresser_id = self.request.query_params.get('hairdresser')
         if hairdresser_id:
             qs = qs.filter(hairdresser_id=hairdresser_id)

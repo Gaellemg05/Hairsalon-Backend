@@ -13,31 +13,46 @@ class ServiceSerializer(serializers.ModelSerializer):
         fields = '__all__'
 
 class SalonPublicationSerializer(serializers.ModelSerializer):
-    salon = serializers.PrimaryKeyRelatedField(queryset=Salon.objects.all())
+    salon = serializers.PrimaryKeyRelatedField(queryset=Salon.objects.all(), required=False)
+    salon_details = serializers.SerializerMethodField()
     media_url = serializers.SerializerMethodField()
-    media = serializers.ImageField(required=False, allow_null=True)
+    media = serializers.FileField(required=False, allow_null=True)
 
     class Meta:
         model = SalonPublication
-        fields = ('id', 'salon', 'title', 'description', 'media', 'media_url', 'media_type', 'created_at')
+        fields = ('id', 'salon', 'salon_details', 'title', 'description', 'category', 'media', 'media_url', 'media_type', 'created_at')
+
+    def get_salon_details(self, obj):
+        try:
+            salon = obj.salon
+            if salon:
+                return {
+                    'id': salon.id,
+                    'name': salon.name,
+                    'address': salon.address,
+                    'image_url': salon.image_url,
+                }
+        except Exception:
+            pass
+        return None
 
     def get_media_url(self, obj):
         if obj.media:
             request = self.context.get('request')
             return request.build_absolute_uri(obj.media.url) if request else obj.media.url
-        return None
+        return obj.media_url if obj.media_url else None
 
 class HairstylePublicationSerializer(serializers.ModelSerializer):
     hairdresser_details = UserSerializer(source='hairdresser', read_only=True)
     salon_details = serializers.SerializerMethodField()
     salon = serializers.PrimaryKeyRelatedField(queryset=Salon.objects.all(), required=False, allow_null=True)
-    hairdresser = serializers.PrimaryKeyRelatedField(queryset=User.objects.all())
+    hairdresser = serializers.PrimaryKeyRelatedField(queryset=User.objects.all(), required=False)
     media_url = serializers.SerializerMethodField()
-    media = serializers.ImageField(required=False, allow_null=True)
+    media = serializers.FileField(required=False, allow_null=True)
 
     class Meta:
         model = HairstylePublication
-        fields = ('id', 'hairdresser', 'hairdresser_details', 'salon', 'salon_details', 'title', 'description', 'media', 'media_url', 'created_at', 'updated_at')
+        fields = ('id', 'hairdresser', 'hairdresser_details', 'salon', 'salon_details', 'title', 'description', 'category', 'media', 'media_url', 'created_at', 'updated_at')
 
     def get_salon_details(self, obj):
         try:

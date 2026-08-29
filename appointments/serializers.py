@@ -45,10 +45,17 @@ class MessageSerializer(serializers.ModelSerializer):
     sender_details = UserSerializer(source='sender', read_only=True)
     chat = serializers.PrimaryKeyRelatedField(queryset=Chat.objects.all())
     sender = serializers.PrimaryKeyRelatedField(queryset=User.objects.all())
+    image_url = serializers.SerializerMethodField()
 
     class Meta:
         model = Message
-        fields = ('id', 'chat', 'sender', 'sender_details', 'content', 'created_at', 'read')
+        fields = ('id', 'chat', 'sender', 'sender_details', 'content', 'image', 'image_url', 'created_at', 'read')
+
+    def get_image_url(self, obj):
+        if obj.image:
+            request = self.context.get('request')
+            return request.build_absolute_uri(obj.image.url) if request else obj.image.url
+        return None
 
 class ChatSerializer(serializers.ModelSerializer):
     last_message = serializers.SerializerMethodField()
@@ -67,8 +74,11 @@ class ChatSerializer(serializers.ModelSerializer):
     def get_last_message(self, obj):
         last = obj.messages.last()
         if last:
+            content = last.content
+            if not content and last.image:
+                content = '📷 Photo'
             return {
-                'content': last.content,
+                'content': content,
                 'sender': last.sender.username,
                 'created_at': last.created_at,
                 'read': last.read
@@ -76,4 +86,7 @@ class ChatSerializer(serializers.ModelSerializer):
         return None
 
     def get_unread_count(self, obj):
+        request = self.context.get('request')
+        if request and request.user.is_authenticated:
+            return obj.messages.filter(read=False).exclude(sender=request.user).count()
         return obj.messages.filter(read=False).count()

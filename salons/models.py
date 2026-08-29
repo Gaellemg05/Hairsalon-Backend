@@ -45,11 +45,21 @@ class Service(models.Model):
     def __str__(self):
         return f"{self.name} - {self.salon.name} ({self.price} FCFA)"
 
+CATEGORY_CHOICES = (
+    ('hair', 'Hairstyle'),
+    ('nails', 'Nails'),
+    ('piercing', 'Piercing'),
+    ('makeup', 'Makeup'),
+    ('skincare', 'Skincare'),
+)
+
 class SalonPublication(models.Model):
     salon = models.ForeignKey(Salon, on_delete=models.CASCADE, related_name='publications')
     title = models.CharField(max_length=200, blank=True, null=True)
     description = models.TextField(blank=True, null=True)
-    media = models.ImageField(upload_to='publications/', blank=True, null=True)
+    category = models.CharField(max_length=20, choices=CATEGORY_CHOICES, default='hair')
+    media = models.FileField(upload_to='publications/', blank=True, null=True)
+    media_url = models.URLField(max_length=500, blank=True, null=True)
     media_type = models.CharField(
         max_length=10,
         choices=(('image', 'Image'), ('video', 'Video')),
@@ -75,7 +85,8 @@ class HairstylePublication(models.Model):
     )
     title = models.CharField(max_length=200)
     description = models.TextField(blank=True, null=True)
-    media = models.ImageField(upload_to='hairstyles/', blank=True, null=True)
+    category = models.CharField(max_length=20, choices=CATEGORY_CHOICES, default='hair')
+    media = models.FileField(upload_to='hairstyles/', blank=True, null=True)
     media_url = models.URLField(max_length=500, blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
